@@ -151,7 +151,6 @@ class Parser:
         print(f"Syntax error at token {p.value} on line {p.lineno}")
 
     def build(self):
-        self.fp = dict()
         self.lexer = Lexer()
         self.lexer.build()
         self.parser = yacc.yacc(module=self)
