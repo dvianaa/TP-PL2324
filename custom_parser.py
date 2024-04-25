@@ -1,21 +1,42 @@
 import ply.yacc as yacc
-from custom_lexer import Lexer
+from lexer import Lexer
+import sys
+import re
+
 
 
 class Parser:
 
-    tokens = Lexer.tokens
-
+    user_words = {}
+        
+    
     def __init__(self):
         self.parser = None
-        self.vm_commands = []
-
+        self.tokens = Lexer.tokens
+        
 
     def p_program(self, p):
         """
         program : statements
         """
-        p[0] = ''.join(p[1])
+        p[0] = ""
+        
+        if p[1]:
+            p[0] = "\nstart\n\n" + p[1] + "\n" + "stop\n\n"
+
+        
+
+        for word, data  in self.user_words.items():
+            p[0] += f"{word}:\n"
+            
+            code, num_args_needed, _ = data
+            
+            for i in range(num_args_needed, 0, -1):
+                p[0] += "pushfp\n"
+                p[0] += f"load -{i}\n"
+                
+            p[0] += f"{code}"
+            p[0] += "return\n\n"
 
     def p_statements(self, p):
         """
@@ -23,54 +44,127 @@ class Parser:
                    | statements statement
         """
         if len(p) == 2:
-            p[0] = [p[1]]
+            p[0] = p[1]
         else:
-            p[0] = p[1] + [p[2]]
+            p[0] = p[1] + p[2]
 
+            
     def p_statement(self, p):
         """
-        statement : expression
-                  | control_flow
-                  | definition
-                  | io_command
-                  | function_call
+        statement : instruction
+                  | word_definition
         """
         p[0] = p[1]
+                
+    def p_instruction(self, p):
+        """
+        instruction : expression_list
+                    | control_flow
+                    | io_command
+        """
+        p[0] = p[1]
+                
+        #print(p[0])
 
     def p_expression_list(self, p):
         """
         expression_list : expression
-                        | expression_list expression
+                        | expression expression_list
         """
         if len(p) == 2:
-            p[0] = [p[1]]
+            p[0] = p[1]
         else:
-            p[0] = p[1] + [p[2]]
+            p[0] = p[1] + p[2]
+            
 
     def p_expression(self, p):
         """
-        expression : NUMBER
-                   | expression expression '+'
-                   | expression expression '-'
-                   | expression expression '*'
-                   | expression expression '/'
-                   | expression expression '%'
-                   | expression expression '<'
-                   | expression expression '>'
-                   | expression expression '='
+        expression : value
+                   | arithmetic_expression
+                   | logical_expression
+                   | other_expression
+                   | word_call
         """
-        if len(p) == 2:
-            p[0] = f"pushi {p[1]}\n"
-        else:
+        p[0] = p[1]
+        
+    def p_value(self, p):
+        """
+        value : num
+              | str
+        """
+        p[0] = p[1]
+        
+        
+    def p_num(self, p):
+        """
+        num : NUMBER
+        """
+        p[0] = f"pushi {p[1]}\n"
+        
+    def p_str(self, p):
+        """
+        str : STRING
+        """
+        p[0] = f"pushs {p[1]}\n"
+        
+    def p_arithmetic_expression(self, p):
+        """
+        arithmetic_expression : expression_list operand
+                              | operand
+        """
+        if len(p) == 3:
             p[0] = p[1] + p[2]
-            if p[3] == '+': p[0] += "ADD\n"
-            elif p[3] == '-': p[0] += "SUB\n"
-            elif p[3] == '*': p[0] += "MUL\n"
-            elif p[3] == '/': p[0] += "DIV\n"
-            elif p[3] == 'MOD': p[0] += "MOD\n"
-            elif p[3] == '<': p[0] += "INF\n"
-            elif p[3] == '>': p[0] += "SUP\n"
-            elif p[3] == '=': p[0] += "EQUAL\n"
+        else:
+            p[0] = p[1]
+            
+    def p_operand(self, p):
+        """
+        operand : '+'
+                | '-'
+                | '*'
+                | '/'
+                | MOD
+        """
+        p[0] = ""
+        if p[1] == '+': p[0] += "add\n"
+        elif p[1] == '-': p[0] += "sub\n"
+        elif p[1] == '*': p[0] += "mul\n"
+        elif p[1] == '/': p[0] += "div\n"
+        elif p[1] == 'MOD': p[0] += "mod\n"
+
+    def p_logical_expression(self, p):
+        """
+        logical_expression : expression_list '<'
+                           | expression_list '>'
+                           | expression_list '='
+        """
+        p[0] = p[1]
+        if p[2] == '<': p[0] += "inf\n"
+        elif p[2] == '>': p[0] += "sup\n"
+        elif p[2] == '=': p[0] += "equal\n"     
+
+    def p_other_expression(self, p):
+        """
+        other_expression : SWAP
+                         | DUP
+                         | 2DUP
+                         | DROP
+        """
+        
+        
+        if p[1] == 'swap':
+            p[0] = "swap\n"
+            
+        elif p[1] == 'dup':
+            p[0] = "dup 1\n"
+            
+        elif p[1] == '2dup': 
+            p[0] = "pusha 2dup\ncall\n"
+            self.user_words['2dup'] = ("swap\n", 2, 4)
+            
+        elif p[1] == 'drop':     
+            p[0] = 'pop 1\n'
+                    
 
     #def p_shortcut(self, p):
 
@@ -83,74 +177,177 @@ class Parser:
 
     def p_if_statement(self, p):
         """
-        if_statement : expression IF statements THEN
-                     | expression IF statements ELSE statements THEN
+        if_statement : instruction IF statements THEN
+                     | instruction IF statements ELSE statements THEN
         """
+                
         if len(p) == 5:
-            p[0] = f"{p[1]} JZ ELSE{len(self.vm_commands)}\n"   
-            p[0] += ''.join(p[3])
-            p[0] += f"JUMP ENDIF{len(self.vm_commands)}:\n"
-            p[0] += f"ELSE{len(self.vm_commands)}:\n" 
-            p[0] += ''.join(p[5])
-            p[0] += f"ENDIF{len(self.vm_commands)}:\n"
-        else:
-            p[0] = f"{p[1]} JZ ENDIF{len(self.vm_commands)}\n"
-            p[0] += ''.join(p[3])
-            p[0] += f"ENDIF{len(self.vm_commands)}:\n"
+            p[0] = p[1] + f"jz endif{self.else_labels}\n" + p[3] + f"endif{self.else_labels}:\n"
+            self.else_labels += 1
 
+        else:
+            p[0] = p[1] + f"jz else{self.else_labels}\n" + p[3] + f"jump endif{self.else_labels}\n" + f"else{self.else_labels}:\n" + p[5] + f"endif{self.else_labels}:\n"
+            self.else_labels += 1
+            
+            
     def p_loop_statement(self, p):
         """
-        loop_statement : expression DO statements LOOP
+        loop_statement : expression_list DO USER_DEFINED statements LOOP
+                       | expression_list DO USER_DEFINED statements num '+' LOOP
         """
-        p[0] = f"LOOP{len(self.vm_commands)}:\n"
-        p[0] += ''.join(p[4])
-        p[0] += f"{p[1]} JNZ LOOP{len(self.vm_commands)}\n"
+        loop_start_label = f"loop_start_label{self.while_labels}"
+        loop_end_label = f"loop_end_label{self.while_labels}"
+        
+        if len(p) == 6:
+            # Regular loop: DO ... LOOP
+            p[0] = f"{loop_start_label}:\n"
+            p[0] += p[1]  # Execute expression_list before the loop
+            p[0] += f"jz {loop_end_label}\n"  # Jump out of the loop if expression_list is false
+            p[0] += p[3]  # Execute the loop body (user-defined statements)
+            p[0] += f"jump {loop_start_label}\n"  # Jump back to the loop start
+            p[0] += f"{loop_end_label}:\n"  # End of the loop
+            
+        elif p[4] == '+':
+            # Incrementing loop: DO ... + LOOP
+            p[0] = f"{loop_start_label}:\n"
+            p[0] += p[1]  # Execute expression_list before the loop
+            p[0] += f"jz {loop_end_label}\n"  # Jump out of the loop if expression_list is false
+            p[0] += p[3]  # Execute the loop body (user-defined statements)
+            p[0] += f"{p[3]} 1 +\n"  # Increment the loop variable
+            p[0] += f"jump {loop_start_label}\n"  # Jump back to the loop start
+            p[0] += f"{loop_end_label}:\n"  # End of the loop
+        
+        self.while_labels += 1
 
-    def p_definition(self, p):
+        
+    def p_word_definition(self, p):
         """
-        definition : ':' WORD statements ';'
+        word_definition : ':' USER_DEFINED statements ';'
         """
-        p[0] = f"{p[2]}:\n"
-        p[0] += ''.join(p[3])
-        p[0] += f"RETURN\n"
+        code = ''.join(p[3])
+        args_needed, args_returned = self.count_stack_operations(code)
+        print(f"Argumentos necessários para a word {p[2]}: ", args_needed, args_returned)
 
-    def p_function_call(self, p):
+        
+        self.user_words[p[2]] = (code, args_needed, args_returned)
+        p[0] = ""
+        
+    def count_stack_operations(self, code):
+        tokens = code.split()
+        stack_effect = self.get_stack_args(tokens)
+        return stack_effect
+
+    def get_stack_effect(self, token):
+        built_in_effects = {
+            'add': (2, 1),
+            'sub': (2, 1),
+            'mul': (2, 1),
+            'div': (2, 1),
+            'mod': (2, 1),
+            'swap': (2, 2),
+            'dup 1': (1, 2),
+            'sup': (2, 3),
+            'inf': (2, 3),
+            'equal': (2, 3),
+            'drop': (1, 0),
+            'writes': (1, 0),
+            'pushs': (0, 1),
+            'pushi': (0, 1),
+            'writei': (1, 0),
+            'jz': (1, 0),
+        }
+        
+        if token in built_in_effects:
+            return built_in_effects[token]
+        
+        elif token in self.user_words:
+            print("word called: ", token)
+            _, arg_needed, args_returned = self.user_words[token]
+            print(f"arg_needed: {arg_needed}, args_returned: {args_returned}")
+            return arg_needed, args_returned
+        
+        return 0, 0
+
+        
+    def get_stack_args(self, token_sequence):
+        needed = 0
+        left = 0
+
+        for token in token_sequence:
+            args_needed, args_returned = self.get_stack_effect(token)
+            if args_needed == 0 and args_returned == 0:
+                continue
+            if left - args_needed < 0:
+                needed += -(left - args_needed)
+                left = 0
+            else:
+                left -= args_needed
+
+            left += args_returned
+
+        return needed, left
+    
+    
+    def p_word_call(self, p):
         """
-        function_call : WORD
-                      | WORD expression_list
+        word_call : USER_DEFINED
         """
-        if len(p) == 2:
-            p[0] = f"{p[1]}\n"
-            p[0] += "CALL\n"
+        if p[1] in self.user_words:
+            p[0] = f"pusha {p[1]}\n"
+            p[0] += "call\n"
         else:
-            p[0] = ''.join(p[2]) + f"{p[1]}\n"
+            print(f"ERROR: Unknown word ({p[1]}) called")
+            sys.exit(1)
+
 
     def p_io_command(self, p):
         """
-        io_command : EMIT
-                   | KEY
-                   | SPACE
-                   | SPACES
-                   | CR
-                   | DOT
+        io_command : dot_command
+                   | output_command
+                   | input_command
         """
-        if p[1] == '.':   
-            p[0] = 'WRITEI\n' 
-        elif p[1] == 'SPACE':
-            p[0] = 'PUSHS " "\nWRITES\n'
-        elif p[1] == 'SPACES':
-            p[0] = 'PUSHS "  "\nWRITES\n'
-        elif p[1] == 'CR':
-            p[0] = "WRITELN\n"
-        elif p[1] == 'EMIT':
-            p[0] == "EMIT\n" # o que fazer?? deveria imprimir o ascii correspondente ao char no topo da stack
-        elif p[1] == 'KEY':
-            p[0] == "KEY\n" # ??? devia inputar 1 char no keyboard mas na vm só existe comando para stirng completa??
+        p[0] = p[1]
+        
+    def p_output_command(self, p):
+        """
+        output_command : CR
+                       | EMIT
+                       | TYPE
+        """
+        if p[1] == 'cr':
+            p[0] = "writeln\n"
+        elif p[1] == 'emit':
+            p[0] = "writechr\n"
+            
+    def p_input_commands(self, p):
+        """
+        input_command : KEY
+                      | S str
+        """
+        if p[1] == 'key':
+            p[0] = "CANT BE DONE WITH THIS VM\n"
+        else:
+            p[0] = f"pushs {p[2]}"
+        
+    def p_dot_command(self, p):
+        """
+        dot_command : '.'
+                    | '.' str
+        """
+        if len(p) == 2:
+            p[0] = "writei\n"
+        else:
+            p[0] = p[2]
+            p[0] += "writes\n"
+    
 
-    def p_error(self, p):
+    def p_error(self, p):   
         print(f"Syntax error at token {p.value} on line {p.lineno}")
 
     def build(self):
         self.lexer = Lexer()
         self.lexer.build()
-        self.parser = yacc.yacc(module=self)
+        self.parser = yacc.yacc(module=self, debug=True)
+        self.else_labels = 0
+        self.while_labels = 0
+        self.user_words = {}

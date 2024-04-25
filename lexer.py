@@ -67,13 +67,14 @@ class Lexer:
 
  
 
-# lexer = Lexer()
-# lexer.build()
+lexer = Lexer()
+lexer.build()
 
-# data = '''
-# 3 4 DUP
-# '''
-# lexer.lexer.input(data)
+data = '''
+: maior2 2dup > if swap then ; 
+ 2 11 3 maior2 maior2 .
+''' 
+lexer.lexer.input(data)
 
-# for token in lexer.lexer:
-#    print(token)
+for token in lexer.lexer:
+   print(token)

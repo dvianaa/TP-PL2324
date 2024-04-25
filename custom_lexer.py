@@ -1,75 +1,50 @@
 import ply.lex as lex
+import sys
 
 class Lexer:
 
     reserved = {
-        'if': 'IF',
+        'mod' : 'MOD',
+        'key' : 'KEY',
+        'cr'  : 'CR',
+        'emit': 'EMIT',
+        'char': 'CHAR',
+        'if'  : 'IF',
         'then': 'THEN',
         'else': 'ELSE',
-        'emit': 'EMIT',
-        'cr': 'CR',
-        'do': 'DO',
+        'do'  : 'DO',
         'loop': 'LOOP',
-        'depth': 'DEPTH',
-        'dup': 'DUP',
-        'mod': 'MOD',
-        '.': 'DOT',
-        'drop': 'DROP',
+        'dup' : 'DUP',
         'swap': 'SWAP',
-        'space': 'SPACE',
-        'spaces': 'SPACES',
-        'key': 'KEY'
     }
-
+    
+    literals = "+-*/.;:<>="
+    
     tokens = [
         'NUMBER',
-        'HEX_NUMBER',
-        'FLOAT',
-        'STRING',
         'WORD',
-        'USER_WORD',
         'COMMENT',
-        'ATALHO',
-        'COMMA',
-        'SEMICOLON',
-        'COLON',
-        'LPAREN',
-        'RPAREN'
     ]+list(reserved.values())
 
-    literals = ['+', '-', '*', '/', '%', '=', '<', '>']
-
-    t_ignore = ' \t\v\f'
-
-    t_NUMBER = r'\d+'
-    t_HEX_NUMBER = r'0x[0-9A-Fa-f]+'
-    t_FLOAT = r'-?\d+\.\d+([eE][+-]?\d+)?'
-    t_STRING = r'"[^"]*"'
-    t_ATALHO = r'\d+[\+\-\*\/\%\=\<\>]'
-    t_COMMA = r','
-    t_SEMICOLON = r';'
-    t_COLON = r':'
-    t_LPAREN = r'\('
-    t_RPAREN = r'\)'
+        
+    t_ignore = r' \t'
+    
+    def t_NUMBER(self, t):
+        r'\d+'
+        t.value = int(t.value)
+        return t
+    
+    def t_WORD(self, t):
+        r'[a-zA-Z_][a-zA-Z0-9_]*'
+        if t.value.lower() in self.reserved:
+            t.type = self.reserved[t.value]
+        else:
+            t.type = 'WORD'
+        return t
 
     def t_COMMENT(self, t):
-        r'\\.*'
+        r"//.*"
         pass
-
-    def t_WORD(self, t):
-        r'[a-zA-Z_\.]\w*'
-        lower_value = t.value.lower()
-        if lower_value not in self.reserved:
-            t.type = 'USER_WORD'
-        else:
-            t.type = self.reserved.get(lower_value, 'WORD')
-        return t
-
-    def t_USER_WORD(self, t):
-        r'[a-zA-Z_]\w*'
-        if t.type != 'WORD':
-            t.type = 'USER_WORD'
-        return t
 
     def t_newline(self, t):
         r'\n+'
@@ -77,35 +52,22 @@ class Lexer:
 
     def t_error(self, t):
         print(f"Illegal character '{t.value[0]}'")
-        t.lexer.skip(1)
+        sys.exit(1)
 
     def build(self):
         self.lexer = lex.lex(module=self)
 
 
 
-#lexer = Lexer()
-#lexer.build()
-#
-#data = '''
-#: FACTORIAL 
-#  DUP 1 = 
-#  IF 
-#    DROP 1 
-#  ELSE 
-#    DUP 1 - FACTORIAL * 
-#  THEN 
-#;
-#
-#: MAIN 
-#  CR "Enter a number: " EMIT 
-#  KEY DIGIT 
-#  CR "The factorial is: " EMIT 
-#  FACTORIAL . CR 
-#;
-#MAIN
-#'''
-#lexer.lexer.input(data)
-#
-#for token in lexer.lexer:
+# lexer = Lexer()
+# lexer.build()
+
+# data = '''
+# 10 0 DO
+#     I . CR
+# LOOP
+# '''
+# lexer.lexer.input(data)
+
+# for token in lexer.lexer:
 #    print(token)
