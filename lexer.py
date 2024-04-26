@@ -71,8 +71,9 @@ lexer = Lexer()
 lexer.build()
 
 data = '''
-: maior2 2dup > if swap then ; 
- 2 11 3 maior2 maior2 .
+: EGGSIZE
+: somatorio 0 swap 1 do i + loop ;
+11 somatorio .
 ''' 
 lexer.lexer.input(data)
 

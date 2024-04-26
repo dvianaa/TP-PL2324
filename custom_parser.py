@@ -71,6 +71,7 @@ class Parser:
         expression_list : expression
                         | expression expression_list
         """
+        
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -151,11 +152,12 @@ class Parser:
                          | DROP
         """
         
-        
+    
         if p[1] == 'swap':
             p[0] = "swap\n"
             
         elif p[1] == 'dup':
+            print(p[1])
             p[0] = "dup 1\n"
             
         elif p[1] == '2dup': 
@@ -164,9 +166,11 @@ class Parser:
             
         elif p[1] == 'drop':     
             p[0] = 'pop 1\n'
+            
+        elif p[1] == 'recurse':
+            p[0] = f"pusha"
                     
 
-    #def p_shortcut(self, p):
 
     def p_control_flow(self, p):
         """
@@ -193,29 +197,37 @@ class Parser:
     def p_loop_statement(self, p):
         """
         loop_statement : expression_list DO USER_DEFINED statements LOOP
-                       | expression_list DO USER_DEFINED statements num '+' LOOP
+                       | expression_list DO statements LOOP
         """
-        loop_start_label = f"loop_start_label{self.while_labels}"
-        loop_end_label = f"loop_end_label{self.while_labels}"
         
+        
+        # 10 0 DO i ."teste" LOOP
+        loop_start_label = f"loop{self.while_labels}"
+        loop_end_label = f"loopend{self.while_labels}"
+
+        p[0] = p[1]
+                        
         if len(p) == 6:
-            # Regular loop: DO ... LOOP
-            p[0] = f"{loop_start_label}:\n"
-            p[0] += p[1]  # Execute expression_list before the loop
-            p[0] += f"jz {loop_end_label}\n"  # Jump out of the loop if expression_list is false
-            p[0] += p[3]  # Execute the loop body (user-defined statements)
-            p[0] += f"jump {loop_start_label}\n"  # Jump back to the loop start
-            p[0] += f"{loop_end_label}:\n"  # End of the loop
             
-        elif p[4] == '+':
-            # Incrementing loop: DO ... + LOOP
-            p[0] = f"{loop_start_label}:\n"
-            p[0] += p[1]  # Execute expression_list before the loop
-            p[0] += f"jz {loop_end_label}\n"  # Jump out of the loop if expression_list is false
-            p[0] += p[3]  # Execute the loop body (user-defined statements)
-            p[0] += f"{p[3]} 1 +\n"  # Increment the loop variable
-            p[0] += f"jump {loop_start_label}\n"  # Jump back to the loop start
-            p[0] += f"{loop_end_label}:\n"  # End of the loop
+            p[0] += "storeg -1\n"
+            p[0] += "storeg -2\n"
+            
+            p[0] += f"{loop_start_label}:\n"
+
+            p[0] += f"pushg -1\n"
+            p[0] += f"pushg -2\n"
+            p[0] += "inf\n"
+            p[0] += f"jz {loop_end_label}\n"
+            
+            p[0] += f"pushg -1\n"
+            p[0] += p[4]
+            
+            p[0] += f"pushg -1\n"
+            p[0] += "pushi 1\n"
+            p[0] += "add\n"
+            p[0] += "storeg -1\n"
+            p[0] += f"jump {loop_start_label}\n"
+            p[0] += f"{loop_end_label}:\n"
         
         self.while_labels += 1
 
@@ -255,6 +267,8 @@ class Parser:
             'pushi': (0, 1),
             'writei': (1, 0),
             'jz': (1, 0),
+            'storeg': (1, 0),
+            'pushg': (0, 1),
         }
         
         if token in built_in_effects:
@@ -295,6 +309,9 @@ class Parser:
         if p[1] in self.user_words:
             p[0] = f"pusha {p[1]}\n"
             p[0] += "call\n"
+            _, args_needed, _ = self.user_words[p[1]]
+            for i in range(args_needed):
+                p[0] += "pop 1\n"
         else:
             print(f"ERROR: Unknown word ({p[1]}) called")
             sys.exit(1)
