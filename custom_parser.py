@@ -26,17 +26,17 @@ class Parser:
 
         
 
-        for word, data  in self.user_words.items():
-            p[0] += f"{word}:\n"
+        # for word, data  in self.user_words.items():
+        #     p[0] += f"{word}:\n"
             
-            code, num_args_needed, _ = data
+        #     code, _, _ = data
             
-            for i in range(num_args_needed, 0, -1):
-                p[0] += "pushfp\n"
-                p[0] += f"load -{i}\n"
+        #     # for i in range(num_args_needed, 0, -1):
+        #     #     p[0] += "pushfp\n"
+        #     #     p[0] += f"load -{i}\n"
                 
-            p[0] += f"{code}"
-            p[0] += "return\n\n"
+        #     p[0] += f"{code}"
+        #     p[0] += "jump\n\n"
 
     def p_statements(self, p):
         """
@@ -150,6 +150,8 @@ class Parser:
                          | DUP
                          | 2DUP
                          | DROP
+                         | RECURSE
+                         | DEPTH
         """
         
     
@@ -157,18 +159,22 @@ class Parser:
             p[0] = "swap\n"
             
         elif p[1] == 'dup':
-            print(p[1])
             p[0] = "dup 1\n"
             
         elif p[1] == '2dup': 
-            p[0] = "pusha 2dup\ncall\n"
-            self.user_words['2dup'] = ("swap\n", 2, 4)
+            p[0] = "pushsp\nload -1\npushsp\nload -1\n"
             
         elif p[1] == 'drop':     
             p[0] = 'pop 1\n'
             
         elif p[1] == 'recurse':
-            p[0] = f"pusha"
+            
+            p[0] = ""
+            
+        elif p[1] == 'depth':
+            p[0] = "depth\n"
+        
+        
                     
 
 
@@ -228,18 +234,37 @@ class Parser:
             p[0] += "storeg -1\n"
             p[0] += f"jump {loop_start_label}\n"
             p[0] += f"{loop_end_label}:\n"
+            
+        elif len(p) == 5:
+            p[0] += "storeg -1\n"
+            p[0] += "storeg -2\n"
+            p[0] += f"{loop_start_label}:\n"
+            
+            p[0] += f"pushg -1\n"
+            p[0] += f"pushg -2\n"
+            p[0] += "inf\n"
+            p[0] += f"jz {loop_end_label}\n"
+            p[0] += p[3]
+            p[0] += f"pushg -1\n"
+            p[0] += "pushi 1\n"
+            p[0] += "add\n"
+            p[0] += "storeg -1\n"
+
+            p[0] += f"jump {loop_start_label}\n"
+            p[0] += f"{loop_end_label}:\n"
         
         self.while_labels += 1
-
+        
         
     def p_word_definition(self, p):
         """
         word_definition : ':' USER_DEFINED statements ';'
         """
+        
+        self.current_word = p[2]
         code = ''.join(p[3])
         args_needed, args_returned = self.count_stack_operations(code)
         print(f"Argumentos necessários para a word {p[2]}: ", args_needed, args_returned)
-
         
         self.user_words[p[2]] = (code, args_needed, args_returned)
         p[0] = ""
@@ -307,11 +332,8 @@ class Parser:
         word_call : USER_DEFINED
         """
         if p[1] in self.user_words:
-            p[0] = f"pusha {p[1]}\n"
-            p[0] += "call\n"
-            _, args_needed, _ = self.user_words[p[1]]
-            for i in range(args_needed):
-                p[0] += "pop 1\n"
+            code, _, _ = self.user_words[p[1]]
+            p[0] = code
         else:
             print(f"ERROR: Unknown word ({p[1]}) called")
             sys.exit(1)
@@ -332,7 +354,7 @@ class Parser:
                        | TYPE
         """
         if p[1] == 'cr':
-            p[0] = "writeln\n"
+            p[0] = "writeln\n"  
         elif p[1] == 'emit':
             p[0] = "writechr\n"
             
@@ -368,3 +390,4 @@ class Parser:
         self.else_labels = 0
         self.while_labels = 0
         self.user_words = {}
+        self.current_word = None

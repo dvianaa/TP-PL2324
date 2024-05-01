@@ -22,6 +22,8 @@ class Lexer:
         'query' : 'QUERY',
         's'     : 'S',
         'type'  : 'TYPE',
+        'recurse': 'RECURSE',
+        'depth' : 'DEPTH',
         
     }
     
@@ -31,10 +33,15 @@ class Lexer:
         'NUMBER',
         'STRING',
         'USER_DEFINED',
+        'COMMENT',
     ]+list(reserved.values())
 
         
     t_ignore = r' '
+    
+    def t_COMMENT(self, t):
+        r'\(.*\)'
+        pass    
     
     def t_STRING(self, t):
         r'"[^"]*"'
@@ -67,15 +74,15 @@ class Lexer:
 
  
 
-lexer = Lexer()
-lexer.build()
+# lexer = Lexer()
+# lexer.build()
 
-data = '''
-: EGGSIZE
-: somatorio 0 swap 1 do i + loop ;
-11 somatorio .
-''' 
-lexer.lexer.input(data)
+# data = '''
+# : EGGSIZE
+# : somatorio 0 swap 1 do i + loop ;
+# 11 somatorio .
+# ''' 
+# lexer.lexer.input(data)
 
-for token in lexer.lexer:
-   print(token)
+# for token in lexer.lexer:
+#    print(token)
