@@ -24,10 +24,14 @@ class Lexer:
         'type'  : 'TYPE',
         'recurse': 'RECURSE',
         'depth' : 'DEPTH',
+        'space' : 'SPACE',
+        'spaces': 'SPACES',
+        'variable': 'VARIABLE',
+        'char' : 'CHAR',
         
     }
     
-    literals = "+-*/;:<>=."
+    literals = "+-*/;:<>=.!@%"
     
     tokens = [
         'NUMBER',
@@ -46,8 +50,7 @@ class Lexer:
     def t_STRING(self, t):
         r'"[^"]*"'
         return t
-    
-    
+
     def t_NUMBER(self, t):
         r'\b\d+\b'
         t.value = int(t.value)
@@ -74,15 +77,16 @@ class Lexer:
 
  
 
-# lexer = Lexer()
-# lexer.build()
+lexer = Lexer()
+lexer.build()
 
-# data = '''
-# : EGGSIZE
-# : somatorio 0 swap 1 do i + loop ;
-# 11 somatorio .
-# ''' 
-# lexer.lexer.input(data)
+data = '''
+CHAR W .
+CHAR % DUP . EMIT
+CHAR A DUP .
+32 + EMIT
+''' 
+lexer.lexer.input(data)
 
-# for token in lexer.lexer:
-#    print(token)
+for token in lexer.lexer:
+   print(token)

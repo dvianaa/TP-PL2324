@@ -1,10 +1,14 @@
-: EGGSIZE ( n -- )
-   dup 18 < if  ." reject "      else
-   dup 21 < if  ." small "       else
-   dup 24 < if  ." medium "      else
-   dup 27 < if  ." large "       else
-   dup 30 < if  ." extra large " else
-      ." error "
-   then then then then then drop ;
-
-19 EGGSIZE
+: STAR 42 emit ;
+: STARS 0 do STAR loop ;
+: MARGIN cr 30 spaces ;
+: BLIP MARGIN STAR ;
+: IOI MARGIN STAR ."   " STAR ;
+: IIO MARGIN STAR STAR ."   " ;
+: OIO MARGIN ."  " STAR ."  ";
+: BAR MARGIN 5 STARS ;
+: F BAR BLIP BAR BLIP BLIP cr ;
+: O BAR IOI IOI IOI BAR cr ;
+: R BAR IOI BAR IIO IOI cr ;
+: T BAR OIO OIO OIO OIO cr ;
+: H IOI IOI BAR IOI IOI cr ;
+F O R T H
