@@ -19,22 +19,18 @@ class Lexer:
         'loop': 'LOOP',
         'char': 'CHAR',
         'accept': 'ACCEPT',
-        'query' : 'QUERY',
         's'     : 'S',
-        'type'  : 'TYPE',
-        'recurse': 'RECURSE',
-        'depth' : 'DEPTH',
         'space' : 'SPACE',
         'spaces': 'SPACES',
         'variable': 'VARIABLE',
         'char' : 'CHAR',
-        
+        'number': 'NUMBER',
     }
     
     literals = "+-*/;:<>=.!@%"
     
     tokens = [
-        'NUMBER',
+        'NUM',
         'STRING',
         'USER_DEFINED',
         'COMMENT',
@@ -51,7 +47,7 @@ class Lexer:
         r'"[^"]*"'
         return t
 
-    def t_NUMBER(self, t):
+    def t_NUM(self, t):
         r'\b\d+\b'
         t.value = int(t.value)
         return t
@@ -74,19 +70,3 @@ class Lexer:
 
     def build(self):
         self.lexer = lex.lex(module=self)
-
- 
-
-lexer = Lexer()
-lexer.build()
-
-data = '''
-CHAR W .
-CHAR % DUP . EMIT
-CHAR A DUP .
-32 + EMIT
-''' 
-lexer.lexer.input(data)
-
-for token in lexer.lexer:
-   print(token)

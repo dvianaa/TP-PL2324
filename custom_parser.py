@@ -24,19 +24,7 @@ class Parser:
         if p[1]:
             p[0] = "\nstart\n\n" + p[1] + "\n" + "stop\n\n"
 
-        
-
-        # for word, data  in self.user_words.items():
-        #     p[0] += f"{word}:\n"
-            
-        #     code, _, _ = data
-            
-        #     # for i in range(num_args_needed, 0, -1):
-        #     #     p[0] += "pushfp\n"
-        #     #     p[0] += f"load -{i}\n"
-                
-        #     p[0] += f"{code}"
-        #     p[0] += "jump\n\n"
+    
 
     def p_statements(self, p):
         """
@@ -56,26 +44,30 @@ class Parser:
                   | word_definition
                   | variable_definition
         """
+        
+        if p.slice[1].type == 'word_definition':
+            p[0] = p[1]
+            self.current_word = None
         p[0] = p[1]
         
     def p_variable_definition(self, p):
         """
         variable_definition : VARIABLE USER_DEFINED
         """
-        if len(p) == 3:
-            if not self.variables_table.check_variable(p[2]):
-                print(f"ERROR: Variable name ({p[2]}) already binded to a memory address")
-                sys.exit(1)
+        
+        if not self.variables_table.check_variable(p[2]):
+            print(f"ERROR: Variable name ({p[2]}) already binded to a memory address")
+            sys.exit(1)
                 
                 
-            elif p[2] in self.user_words:
-                print(f"ERROR: Variable name ({p[2]}) already in use by a user word")
-                sys.exit(1)
+        elif p[2] in self.user_words:
+            print(f"ERROR: Variable name ({p[2]}) already in use by a user word")
+            sys.exit(1)
                 
-            else:
-                self.variables_table.add_symbol(p[2])
+        else:
+            self.variables_table.add_symbol(p[2])
                 
-                p[0] = f"alloc 1\npushi 0\nstore 0\n"
+            p[0] = f"alloc 1\npushi 0\nstore 0\n"
                 
     def p_instruction(self, p):
         """
@@ -102,8 +94,7 @@ class Parser:
     def p_expression(self, p):
         """
         expression : value
-                   | arithmetic_expression
-                   | logical_expression
+                   | arithmetic_logical_expression
                    | other_expression
                    | word_call
                    | variable_command
@@ -136,6 +127,7 @@ class Parser:
         assignment : USER_DEFINED '!'
         """
         
+        
         if self.variables_table.check_variable(p[1]):
             print(f"ERROR: Variable name ({p[1]}) not declared")
             sys.exit(1)
@@ -153,7 +145,7 @@ class Parser:
         
     def p_num(self, p):
         """
-        num : NUMBER
+        num : NUM
         """
         p[0] = f"pushi {p[1]}\n"
         
@@ -163,10 +155,10 @@ class Parser:
         """
         p[0] = f"pushs {p[1]}\n"
         
-    def p_arithmetic_expression(self, p):
+    def p_arithmetic_logical_expression(self, p):
         """
-        arithmetic_expression : expression_list operand
-                              | operand
+        arithmetic_logical_expression : expression_list operand
+                                      | operand
         """
         if len(p) == 3:
             p[0] = p[1] + p[2]
@@ -179,7 +171,11 @@ class Parser:
                 | '-'
                 | '*'
                 | '/'
+                | '<'
+                | '>'
+                | '='
                 | MOD
+                
         """
         p[0] = ""
         if p[1] == '+': p[0] += "add\n"
@@ -187,17 +183,9 @@ class Parser:
         elif p[1] == '*': p[0] += "mul\n"
         elif p[1] == '/': p[0] += "div\n"
         elif p[1] == 'mod': p[0] += "mod\n"
-
-    def p_logical_expression(self, p):
-        """
-        logical_expression : expression_list '<'
-                           | expression_list '>'
-                           | expression_list '='
-        """
-        p[0] = p[1]
-        if p[2] == '<': p[0] += "inf\n"
-        elif p[2] == '>': p[0] += "sup\n"
-        elif p[2] == '=': p[0] += "equal\n"     
+        elif p[1] == '<': p[0] += "inf\n"
+        elif p[1] == '>': p[0] += "sup\n"
+        elif p[1] == '=': p[0] += "equal\n"   
 
     def p_other_expression(self, p):
         """
@@ -205,8 +193,6 @@ class Parser:
                          | DUP
                          | 2DUP
                          | DROP
-                         | RECURSE
-                         | DEPTH
         """
         
     
@@ -221,13 +207,6 @@ class Parser:
             
         elif p[1] == 'drop':     
             p[0] = 'pop 1\n'
-            
-        elif p[1] == 'recurse':
-            
-            p[0] = ""
-            
-        elif p[1] == 'depth':
-            p[0] = "depth\n"
         
         
     def p_control_flow(self, p):
@@ -252,6 +231,9 @@ class Parser:
         else:
             p[0] = p[1] + f"jz else<ELSE_COUNTER>\n" + p[3] + f"jump endif<ELSE_COUNTER>\n" + f"else<ELSE_COUNTER>:\n" + p[5] + f"endif<ELSE_COUNTER>:\n"
             
+        if self.current_word is None:
+            p[0] = self.replace_else_labels(p[0], self.else_labels)
+            
     def replace_else_labels(self, code, else_counter):
         """
         Replace placeholders for conditional labels with actual else counter value
@@ -274,8 +256,8 @@ class Parser:
             
     def p_loop_statement(self, p):
         """
-        loop_statement : expression_list DO USER_DEFINED statements LOOP
-                       | expression_list DO statements LOOP
+        loop_statement : expression_list DO statements LOOP
+                       | expression_list DO USER_DEFINED statements LOOP
         """
         
         
@@ -353,6 +335,8 @@ class Parser:
             p[0] += f"{loop_end_label}:\n"
             p[0] += "popst\n"
             
+        if self.current_word is None:
+            p[0] = self.replace_loop_labels(p[0], self.while_labels)
             
     def replace_loop_labels(self, code, loop_counter):
         """
@@ -383,16 +367,21 @@ class Parser:
         self.current_word = p[2]
         code = ''.join(p[3])
         args_needed, args_returned = self.count_stack_operations(code)
-        #print(f"Argumentos necessários para a word {p[2]}: ", args_needed, args_returned)
         self.user_words[p[2]] = (code, args_needed, args_returned)
         p[0] = ""
         
     def count_stack_operations(self, code):
+        '''
+        Count the number of stack operations needed and returned by a word (used but not necessary)
+        '''
         tokens = code.split()
         stack_effect = self.get_stack_args(tokens)
         return stack_effect
 
     def get_stack_effect(self, token):
+        '''
+        Returns the number of arguments needed and returned by a token (used but not necessary)
+        '''
         built_in_effects = {
             'add': (2, 1),
             'sub': (2, 1),
@@ -418,15 +407,16 @@ class Parser:
             return built_in_effects[token]
         
         elif token in self.user_words:
-            print("word called: ", token)
             _, arg_needed, args_returned = self.user_words[token]
-            print(f"arg_needed: {arg_needed}, args_returned: {args_returned}")
             return arg_needed, args_returned
         
         return 0, 0
 
         
     def get_stack_args(self, token_sequence):
+        '''
+        Returns the number of arguments needed and returned by a sequence of tokens (used but not necessary)
+        '''
         needed = 0
         left = 0
 
@@ -455,11 +445,7 @@ class Parser:
                 
             code_elsed = self.replace_else_labels(code_looped, self.else_labels)
             
-            if code_looped != code_elsed:
-                self.else_labels += 1
-              
-
-
+            
             p[0] = code_elsed
             code = self.restore_else_placeholders(code_elsed)
             code = self.restore_loop_placeholders(code)
@@ -484,34 +470,50 @@ class Parser:
                        | SPACE
                        | num SPACES
         """
+
+        print("p[1]: ", p[1])
+
         if p[1] == 'cr':
             p[0] = "writeln\n"  
         elif p[1] == 'emit':
             p[0] = "writechr\n"
         elif p[1] == 'space':
             p[0] = 'pushs " "\nwrites\n'
-        elif p[2] == 'spaces':
+        elif len(p) == 3 and p[2] == 'spaces':
             num_str = p[1]
+
             num_match = re.match(r'^pushi (\d+)$', num_str)
             times = int(num_match.group(1))
+            
             s = ""
             for _ in range(times):
                 s += " "
             p[0] = f'pushs "{s}"\nwrites\n'
+            
+        print("p[0]: ", p[0])
+        
+        
             
     def p_input_commands(self, p):
         """
         input_command : KEY
                       | S str
                       | CHAR USER_DEFINED
+                      | ACCEPT
+                      | NUMBER
         """
-        if p[1] == 'char':
+        if p[1] == 'number':
+            p[0] = "atoi\n"
+        elif p[1] == 'accept':
+            p[0] = "read\n"
+            print(p[0])
+        elif p[1] == 'char':
             if len(p[2]) > 1:
                 print("ERROR: CHAR command only accepts one character")
                 sys.exit(1)
             else:
                 p[0] = f'pushs "{p[2]}"\nchrcode\n' 
-        if p[1] == 'key':
+        elif p[1] == 'key':
             p[0] = "read\nchrcode\n"
         else:
             p[0] = f"pushs {p[2]}"
